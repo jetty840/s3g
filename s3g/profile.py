@@ -5,17 +5,25 @@ A machine profile object that holds all values for a specific profile.
 import json
 import os
 import logging
+
 class Profile(object):
 
-  def __init__(self, name):
-    """Constructor for the profile object.
-    @param string name: Name of the profile, NOT the path.
+  def __init__(self, name=None, abs_path=None):
+    """Constructor for the profile object.  If given only a name, looks
+    in the ./profiles/ directory for that file.json.  If a path is specified,
+    uses the path instead.
+
+    @param str name: Name of the profile
+    @param str path: The path to a profile
     """
     self._log = logging.getLogger(self.__class__.__name__)
-    self.path = os.path.join(
-        os.path.abspath(os.path.dirname(__file__)),'profiles' + os.path.sep)  #Path of the profiles directory
-    extension = '.json'
-    path = self.path+name+extension
+    if name:
+      path = os.path.join(
+          os.path.abspath(os.path.dirname(__file__)),'profiles' + os.path.sep)  #Path of the profiles directory
+      extension = '.json'
+      path = path+name+extension
+    elif abs_path:
+      path = abs_path
     self._log.info('{"event":"open_profile", "path":%s}'
         %(path))
     with open(path) as f:
