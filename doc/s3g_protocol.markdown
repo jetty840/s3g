@@ -225,7 +225,7 @@ Response code values can be as follows:
 </tr>
 <tr>
  <td>0x80</td>
- <td>Generic error, packet discarded</td>
+ <td>Generic Packet error, packet discarded</td>
  <td>Yes</td>
 </tr>
 <tr>
@@ -245,7 +245,7 @@ Response code values can be as follows:
 </tr>
 <tr>
  <td>0x84</td>
- <td>Query packet too big, packet discarded (TODO: is this in use?)</td>
+ <td>Query packet too big, packet discarded </td>
  <td>No</td>
 </tr>
 <tr>
@@ -268,6 +268,22 @@ Response code values can be as follows:
  <td>Cancel build</td>
  <td>Yes</td>
 </tr>
+<tr>
+ <td>0x8A</td>
+ <td>Bot is Building from SD</td>
+ <td>No</td>
+</tr>
+<tr>
+ <td>0x8B</td>
+ <td>Bot is shutdown due to Overheat</td>
+ <td>No</td>
+</tr>
+<tr>
+ <td>0x8C</td>
+ <td>Packet timeout error, packet discarded</td>
+ <td>Yes</td>
+</tr>
+
 </table>
 
 _Historical note: Firmware versions prior to 2.9 did not have the high bit set for error codes. This was changed to avoid having the response code conflict with tool indexes on the tool network_ 
@@ -391,7 +407,7 @@ An axes bitfield structure is used to represent a selection of axes.
 # Host Query Commands
 
 ## 00 - Get version: Query firmware for version information
-This command allows the host and firmware to exchange version numbers. It also allows for automated discovery of the firmware. Version numbers will always be stored as a single number, Arduino / Processing style.
+This command allows the host and firmware to exchange version numbers. It also allows for automated discovery of the firmware. Version numbers will always be stored as a single number, Arduino / Processing style.  If the returned version number is greater than 5.5, the host has the option of requesting advanced version information with command #27
 
 Payload
 
@@ -426,6 +442,58 @@ This command will empty our buffer, and reset all pointers, etc to the beginning
 Payload (0 bytes)
 
 Response (0 bytes)
+
+## 04 - Get position
+
+Retrieve the curent position of all the x, y, and z axes.  This command is deprecated, use 'get extended position' (21) instead.
+
+Payload (0 bytes)
+
+Response
+
+    int32: X position, in steps
+    int32: Y position, in steps
+    int32: Z position, in steps
+    uint8: bit field corresponding to the endstop status:
+
+<table>
+<tr>
+ <th>Bit</th>
+ <th>Name</th>
+</tr>
+<tr>
+ <td>7</td>
+ <td>(unused)</td>
+</tr>
+<tr>
+ <td>6</td>
+ <td>(unused)</td>
+</tr>
+<tr>
+ <td>5</td>
+ <td>Z max switch pressed</td>
+</tr>
+<tr>
+ <td>4</td>
+ <td>Z min switch pressed</td>
+</tr>
+<tr>
+ <td>3</td>
+ <td>Y max switch pressed</td>
+</tr>
+<tr>
+ <td>2</td>
+ <td>Y min switch pressed</td>
+</tr>
+<tr>
+ <td>1</td>
+ <td>X max switch pressed</td>
+</tr>
+<tr>
+ <td>0</td>
+ <td>X min switch pressed</td>
+</tr>
+</table>
 
 ## 07 - Abort immediately: Stop machine, shut down job permanently
 This function is intended to be used to terminate a print during printing. Disables steppers, heaters, and any toolheads, and clears all command buffers.
@@ -670,7 +738,7 @@ Response
 <tr>
  <td>6</td>
  <td>HEAT_SHUTDOWN</td>
- <td>Heaters were shutdown after 20 minutes of inactivity</td>
+ <td>Heaters were shutdown after 30 minutes of inactivity</td>
 </tr>
 <tr>
  <td>5</td>
@@ -704,7 +772,44 @@ Response
 </tr>
 </table>
 
-## 26 - Get communication statistics
+## 24 - Get build statistics
+Gathers statistics about the currently building print if a build is active, or the last print if there is no active build
+
+Payload (1 byte)
+
+Response
+
+    uint8 : Build State (paused, running, finished_normally, canceled, none)
+    uint8 : Hours elapsed on print
+    uint8 : Minutes elapsed on print (add hours for total time)
+    uint32: Line Number (number of commands processed)
+    uint32: Reserved for Future Use
+
+Build State Return Values are as follows
+<table>
+<tr>
+  <td>0</td>
+  <td>no build initialized (boot up state)</td>
+</tr>
+<tr>
+  <td>1</td>
+  <td>build running</td>
+</tr>
+<tr>
+  <td>2</td>
+  <td>build finished normally</td>
+</tr>
+<tr>
+  <td>3</td>
+  <td>build paused</td>
+</tr>
+<tr>
+  <td>4</td>
+  <td>build cancelled</td>
+</tr>
+</table>
+
+## 25 - Get communication statistics
 Gathers statistics about communication over the tool network. This was intended for use while troubleshooting Gen3/4 machines.
 
 Payload (0 bytes)
@@ -717,7 +822,44 @@ Response
     uint32: Number of packet retries on the tool network 
     uint32: Number of bytes received over the tool network that were discarded as noise
 
+## 27 - Get advanced version number
+returns the main version numbers along with an internal version number
+
+Payload
+
+    uint16: Host Version
+
+Response
+
+    uint16_t Firmware Version
+    uint16_t Internal Version
+    uint16_t Reserved for future use
+    uint16_t Reserved for future use
+
 # Host Buffered Commands
+
+## 129 - Queue point absolute
+This function queues the absolute (x,y,z) position of a point in stepper space to move to.  It does not allow specification of extruder positions and as such should be considered obsolete.  Use 'queue point extended' (139) or 'queue point extended new-style' (142) instead.
+
+Payload
+
+    int32: X coordinate, in steps
+    int32: Y coordinate, in steps
+    int32: Z coordinate, in steps
+    int32: Feedrate, in microseconds between steps on the max delta. (DDA)
+
+Response (0 bytes)
+
+## 130 - Set position
+Reset the current position of the x, y, and z axes to the given values.  This command does not support specification of extruder positions and as such should be considered obsolete.  Instead use the 'set extended position' command, 140.
+
+Payload
+
+    int32: X position, in steps
+    int32: Y position, in steps
+    int32: Z position, in steps
+
+Response (0 bytes)
 
 ## 131 - Find axes minimums: Move specified axes in the negative direction until their limit switch is triggered.
 This function will find the minimum position that the hardware can travel to, then stop. Note that all axes are moved syncronously. If one of the axes (Z, for example) should be moved separately, then a seperate command should be sent to move that axis. Note that a minimum endstop is required for each axis that is to be moved.
@@ -746,7 +888,7 @@ Halt all motion for the specified amount of time.
 
 Payload
 
-    uint32: delay, in microseconds
+    uint32: delay, in milliseconds
 
 Response (0 bytes)
 
@@ -844,7 +986,7 @@ Payload
     int32: Z coordinate, in steps
     int32: A coordinate, in steps
     int32: B coordinate, in steps
-    uint32: Feedrate, in microseconds between steps on the max delta. (DDA)
+    int32: Feedrate, in microseconds between steps on the max delta. (DDA)
 
 Response (0 bytes)
 
@@ -884,7 +1026,7 @@ Payload
     int32: Z coordinate, in steps
     int32: A coordinate, in steps
     int32: B coordinate, in steps
-    uint32: Duration of the movement, in microseconds
+    int32: Duration of the movement, in microseconds
     uint8: Axes bitfield to specify which axes are relative. Any axis with a bit set should make a relative movement.
 
 Response (0 bytes)
@@ -912,7 +1054,7 @@ Set the value of the digital potentiometers that control the voltage reference f
 
 Payload
 
-    uint8: Axes bitfield to specify which axes' potentiometers to set. Any axis with a bit set should have it's potentiometer set.
+    uint8: axis value (valid range 0-4) which axis pot to set
     uint8: value (valid range 0-127), values over max will be capped at max
 
 Response (0 bytes)
@@ -1036,13 +1178,11 @@ Options Field
 This command is used to display a message to the LCD board.
 The maximum buffer size is larger than the maximum package size, so a full screen cannot be written with one command.
 Messages are stored in a buffer and the full buffer is displayed when the "last message in group" flag is 1.
-The buffer is also displayed when the clear message flag is 1. If multiple packets are received before the screen update is called, they will all be displayed. After screen update is called, the screen will wait until the "last message in group" is received to display the full buffer. TODO: clean this
-The "last message in group" flag must be used for display of multi-packet messages.
-Normal popping up of the message screen, such as when a print is over, is ignored if the "last message in group" flag has not been received. This is because the bot thinks it is still waiting for the remainder of a message.
+If the "last message in group" is not sent, the message will never be displayed
 
 if the "clear message" flag is 0, the message buffer will be cleared and any existing timeout out will be cleared.
 
-If the "wait on button" flag is 1, the message screen will clear after a user button press is received. The timeout field is still relevant if the button press is never received.
+If the "wait on button" flag is 1, the message screen will clear after a users presses the center button. The timeout field is still relevant if the button press is never received.
 
 Text will auto-wrap at end of line. \n is recognized as new line start. \r is ignored.
 
@@ -1115,10 +1255,21 @@ Payload
 
 Response (0 bytes)
 
-TODO: List of available songs?
+    song ID 0: error tone with 4 cycles
+    song ID 1: done tone
+    song ID 2: error tone with 2 cycles
+
 
 ## 152 - reset to Factory
 Calls a factory reset on the eeprom. Resets all values to their "factory" settings. A soft reset of the board is also called.
+
+This function resets all eeprom values to defaults except those that are considered "Factory" settings.   Factory settings are:
+
+    Toolhead Calibration Settings
+    Axis Inversion Settings
+    Tool Count (single or dual)
+
+These settings will not be cleared by reset to Factory.  A full eeprom reset must be called to clear these settings.
 
 Payload
 
@@ -1127,7 +1278,7 @@ Payload
 Response (0 bytes)
 
 ## 153 - Build start notification
-Tells the motherboard that a build is about to begin, and provides the name of the job for status reporting. This allows the motherboard to display an appropriate build screen on the interface board.
+Tells the motherboard that a build is starting. This allows the motherboard to be state aware and to display and track build statistics.   Builds that do not include this command will not have the full mightyboard feature set enabled.
 
 Payload
 
@@ -1175,6 +1326,14 @@ Payload (0 bytes)
 Response
 
     uint32: Duration of each rotation, in microseconds
+
+## 19 - Get motor speed (PWM)
+
+Payload (0 bytes)
+
+Response
+
+    uint8: Pulse width modulation duty cycle, 0 - 255.  The duty cycle as a decimal percentage is the returned value divided by 255.
 
 ## 22 - Is tool ready?
 Query the tool to determine if it has reached target temperature. Note that this only queries the toolhead, not the build platform.
@@ -1255,7 +1414,7 @@ Response
 
     uint8: Bitfield containing status information (see below)
 
-DEPRECATED BITFIELD TABLE
+DEPRECATED BITFIELD TABLE (Used by G3Firmware)
 <table>
 <tr>
  <th>Bit</th>
@@ -1390,12 +1549,30 @@ Payload
 
 Response (0 bytes)
 
+## 04 - Set motor speed (PWM)
+This sets the motor speed as an PWM duty cycle value, but does not enable/disable it.  The permitted values range from 0 to 255 indicating duty cycles from 0 to 100%.  The duty cycle percentage is the specified value times (100/255).
+
+Payload
+
+    uint8: PWM duty cycle; 0 = 0%, 255 = 100%
+
+Response (0 bytes)
+
 ## 06 - Set motor speed (RPM)
 This sets the motor speed as an RPM value, but does not enable/disable it.
 
 Payload
 
     uint32: Duration of each rotation, in microseconds
+
+Response (0 bytes)
+
+## 08 - Set motor direction
+Sets the direction of motor rotation.  A value of 1 sets one direction while any other value sets the opposite direction.
+
+Payload
+
+    uint8: Direction of rotation
 
 Response (0 bytes)
 
@@ -1457,7 +1634,7 @@ Response (0 bytes)
 </table>
 
 ## 12 - Enable/disable fan
-Turn the fan output on or off
+Turn the fan output on or off.  Note that the extruder fan does not turn on until a temperature threshold is reached (currently set to 50C).  
 
 Payload
 
@@ -1483,6 +1660,15 @@ Payload
 
 Response (0 bytes)
 
+## 15 - Set servo 2 position
+Set the position of a servo connected to the second servo output.
+
+Payload
+
+    uint8: Desired angle, from 0 - 180
+
+Response (0 bytes)
+
 ## 23 - pause/resume: Halt execution temporarily
 This function is inteded to be called infrequently by the end user in order to make build-time adjustments during a print.
 
@@ -1494,6 +1680,16 @@ Response (0 bytes)
 This function is intended to be used to terminate a print during printing. Disables any engaged heaters and motors. 
 
 Payload (0 bytes)
+
+Response (0 bytes)
+
+## 27 - Turn the ABP conveyor belt on or off
+Turn the conveyor belt on or off on an automated build platform.
+
+_Historical note: the G3Firmware named this command SLAVE_CMD_TOGGLE_ABP suggesting that the command toggles or flip/flops the state of the conveyor belt.  The command does not change the relative state of the conveyor belt: it changes the absolute state._
+Payload
+
+    uint8: Only the least significant bit is examined: 0 turns off, 1 turns on.
 
 Response (0 bytes)
 

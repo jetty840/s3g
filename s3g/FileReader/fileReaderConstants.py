@@ -21,11 +21,12 @@ hostFormats = {
     151     :     ['B'], #"QUEUE SONG", 
     152     :     ['B'], #"RESET TO FACTORY", 
     153     :     ['I', 's'], #"BUILD START NOTIFICATION", 
-    154     :     [], #"BUILD END NOTIFICATION"
+    154     :     ['B'], #"BUILD END NOTIFICATION"
 }
 slaveFormats = {
     1       :     [], #"INIT"
     3       :     ['h'], #"SET TOOLHEAD TARGET TEMP", 
+    4       :     ['B'],
     6       :     ['I'], #"SET MOTOR 1 SPED RPM", 
     10      :     ['B'], #"TOGGLE MOTOR 1", 
     12      :     ['B'], #"TOGGLE FAN", 

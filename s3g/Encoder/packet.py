@@ -52,7 +52,7 @@ def check_response_code(response_code):
   if response_code == constants.response_code_dict['SUCCESS']:
     return
 
-  elif response_code == constants.response_code_dict['GENERIC_ERROR']:
+  elif response_code == constants.response_code_dict['GENERIC_PACKET_ERROR']:
     raise errors.GenericError()
 
   elif response_code == constants.response_code_dict['ACTION_BUFFER_OVERFLOW']:
@@ -60,6 +60,9 @@ def check_response_code(response_code):
 
   elif response_code == constants.response_code_dict['CRC_MISMATCH']:
     raise errors.CRCMismatchError()
+
+  elif response_code == constants.response_code_dict['COMMAND_NOT_SUPPORTED']:
+    raise errors.CommandNotSupportedError()
 
   elif response_code == constants.response_code_dict['DOWNSTREAM_TIMEOUT']:
     raise errors.DownstreamTimeoutError()
@@ -69,6 +72,12 @@ def check_response_code(response_code):
 
   elif response_code == constants.response_code_dict['CANCEL_BUILD']:
     raise errors.BuildCancelledError()
+
+  elif response_code == constants.response_code_dict['ACTIVE_LOCAL_BUILD']:
+    raise errors.ActiveBuildError()
+
+  elif response_code == constants.response_code_dict['OVERHEAT_STATE']:
+    raise errors.OverheatError()
 
   raise errors.UnknownResponseError(response_code)
 

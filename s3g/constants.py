@@ -3,6 +3,7 @@ host_query_command_dict = {
   'INIT'                      : 1,
   'GET_AVAILABLE_BUFFER_SIZE' : 2,
   'CLEAR_BUFFER'              : 3,
+  'GET_POSITION'              : 4,
   'ABORT_IMMEDIATELY'         : 7,
   'PAUSE'                     : 8,
   'TOOL_QUERY'                : 10,
@@ -18,10 +19,14 @@ host_query_command_dict = {
   'GET_EXTENDED_POSITION'     : 21,
   'EXTENDED_STOP'             : 22,
   'GET_MOTHERBOARD_STATUS'    : 23,
-  'GET_COMMUNICATION_STATS'   : 26
+  'GET_BUILD_STATS'           : 24,
+  'GET_COMMUNICATION_STATS'   : 25,
+  'GET_ADVANCED_VERSION'      : 27
 }
 
 host_action_command_dict = {
+  'QUEUE_POINT_ABSOLUTE'      : 129,
+  'SET_POSITION'              : 130,
   'FIND_AXES_MINIMUMS'        : 131,
   'FIND_AXES_MAXIMUMS'        : 132,
   'DELAY'                     : 133,
@@ -52,6 +57,7 @@ slave_query_command_dict = {
   'GET_VERSION'                : 0,
   'GET_TOOLHEAD_TEMP'          : 2,
   'GET_MOTOR_1_SPEED_RPM'      : 17,
+  'GET_MOTOR_1_SPEED_PWM'      : 19,
   'IS_TOOL_READY'              : 22,
   'READ_FROM_EEPROM'           : 25,
   'WRITE_TO_EEPROM'            : 26,
@@ -66,26 +72,33 @@ slave_query_command_dict = {
 slave_action_command_dict = {
   'INIT'                       : 1,
   'SET_TOOLHEAD_TARGET_TEMP'   : 3,
+  'SET_MOTOR_1_SPEED_PWM'      : 4,
   'SET_MOTOR_1_SPEED_RPM'      : 6,
+  'SET_MOTOR_1_DIRECTION'      : 8,
   'TOGGLE_MOTOR_1'             : 10,
   'TOGGLE_FAN'                 : 12,
   'TOGGLE_EXTRA_OUTPUT'        : 13,
   'SET_SERVO_1_POSITION'       : 14,
+  'SET_SERVO_2_POSITION'       : 15,
   'PAUSE'                      : 23,
   'ABORT'                      : 24,
+  'TOGGLE_ABP'                 : 27,
   'SET_PLATFORM_TEMP'          : 31,
 }
 
 response_code_dict = {
-  'GENERIC_ERROR'              : 0x80,
+  'GENERIC_PACKET_ERROR'       : 0x80,
   'SUCCESS'                    : 0x81,
   'ACTION_BUFFER_OVERFLOW'     : 0x82,
   'CRC_MISMATCH'               : 0x83,
-#  'QUERY_TOO_BIG'              : 0x84,
-#  'COMMAND_NOT_SUPPORTED'      : 0x85,
+#  'PACKET_TOO_BIG'             : 0x84,
+  'COMMAND_NOT_SUPPORTED'      : 0x85,
   'DOWNSTREAM_TIMEOUT'         : 0x87,
   'TOOL_LOCK_TIMEOUT'          : 0x88,
   'CANCEL_BUILD'               : 0x89,
+  'ACTIVE_LOCAL_BUILD'         : 0x8A,
+  'OVERHEAT_STATE'             : 0x8B,
+#  'PACKET_TIMEOUT'             : 0x8C,
 }
 
 sd_error_dict = {
@@ -101,6 +114,6 @@ sd_error_dict = {
 header = 0xD5
 maximum_payload_length = 32
 max_retry_count = 5
-timeout_length = .5
+timeout_length = 5
 s3g_version = 100
 max_tool_index = 127

@@ -1,7 +1,6 @@
 # Some utilities for speaking s3g
 import struct
 import time
-import logging
 import serial
 
 import Encoder
@@ -45,6 +44,33 @@ class s3g(object):
     response = self.writer.send_query_payload(payload)
     [response_code, version] = Encoder.unpack_response('<BH', response)
     return version
+
+  def get_advanced_version(self):
+    """
+    Get the firmware version number of the connected machine
+    @return Version number
+    """
+    payload = struct.pack(
+      '<BH',
+      host_query_command_dict['GET_ADVANCED_VERSION'], 
+      s3g_version,
+    )
+
+    response = self.writer.send_query_payload(payload)
+    [response_code,
+     version,
+     internal_version,
+     reserved_a,
+     reserved_b] = Encoder.unpack_response('<BHHHH', response)
+
+    version_info = {
+    'Version' : version,
+    'InternalVersion' : internal_version,
+    'ReservedA'  : reserved_a,
+    'ReservedB'  : reserved_b,
+    }
+
+    return version_info
 
   def capture_to_file(self, filename):
     """
@@ -129,6 +155,33 @@ class s3g(object):
     # TODO: mismatch here.
     self.writer.send_action_payload(payload)
 
+  def get_build_stats(self):
+    """
+    Get some statistics about the print currently running, or the last print if no print is active
+    """
+    payload = struct.pack(
+      '<B',
+      host_query_command_dict['GET_BUILD_STATS'],
+    )
+     
+    response = self.writer.send_query_payload(payload)
+
+    [response_code,
+     build_state,
+     build_hours,
+     build_minutes,
+     line_number,
+     reserved] = Encoder.unpack_response('<BBBBLL', response)
+
+    info = {
+    'BuildState' : build_state,
+    'BuildHours' : build_hours,
+    'BuildMinutes' : build_minutes,
+    'LineNumber' : line_number,
+    'Reserved' : reserved
+    }
+    return info
+
   def get_communication_stats(self):
     """
     Get some communication statistics about traffic on the tool network from the Host.
@@ -173,9 +226,10 @@ class s3g(object):
 
     [response_code, bitfield] = Encoder.unpack_response('<BB', response)
 
+    bitfield = Encoder.decode_bitfield(bitfield)
     flags = {
-    'POWER_ERROR'   : 1 == ((bitfield >> 7) & 0x01),
-    'HEAT_SHUTDOWN' : 1 == ((bitfield >> 6) & 0x01)
+    'POWER_ERROR'   : bitfield[7],
+    'HEAT_SHUTDOWN' : bitfield[6],
     }
     return flags
 
@@ -288,6 +342,25 @@ class s3g(object):
 
     self.writer.send_action_payload(payload)
 
+  def queue_point_absolute(self, position, duration):
+    """
+    Queue an absolute position with the old style!  Moves to a certain position over a given duration.
+
+    @param list position: A 3 dimentional position in steps specifying where each axis should move to
+    @param int duration: The total duration of the move in miliseconds
+    """
+    if len(position) != self.pointLength:
+      raise PointLengthError(len(position))
+
+    payload = struct.pack(
+      '<Biiii',
+      host_action_command_dict['QUEUE_POINT_ABSOLUTE'],
+      position[0], position[1], position[2],
+      duration
+    )
+
+    self.writer.send_action_payload(payload)
+  
   def queue_extended_point_new(self, position, duration, relative_axes):
     """
     Queue a position with the new style!  Moves to a certain position over a given duration
@@ -324,16 +397,16 @@ class s3g(object):
 
     self.writer.send_action_payload(payload)
 
-  def set_potentiometer_value(self, axes, value):
+  def set_potentiometer_value(self, axis, value):
     """
     Sets the value of the digital potentiometers that control the voltage references for the botsteps
-    @param list axes: Array of axis names ['x', 'y', ...] whose potentiometers should be set
+    @param axis: Axis whose potentiometers should be set
     @param int value: The value to set the digital potentiometer to.
     """
     payload = struct.pack(
       '<BBB',
       host_action_command_dict['SET_POT_VALUE'], 
-      Encoder.encode_axes(axes), 
+      Encoder.encode_axis(axis), 
       value
     )
 
@@ -575,6 +648,25 @@ class s3g(object):
 
     return [x, y, z, a, b], endstop_states
 
+  def get_position(self):
+    """
+    Gets the current machine position
+    @return tuple position: containing the 3D position the machine is currently located
+    at, and the endstop states.
+    """
+    payload = struct.pack(
+      '<B',
+      host_query_command_dict['GET_POSITION'],
+    )
+
+    response = self.writer.send_query_payload(payload)
+  
+    [response_code,
+     x, y, z,
+     endstop_states] = Encoder.unpack_response('<BiiiB', response)
+
+    return [x, y, z], endstop_states
+
   def find_axes_minimums(self, axes, rate, timeout):
     """
     Move the toolhead in the negativedirection, along the specified axes,
@@ -648,6 +740,22 @@ class s3g(object):
       host_action_command_dict['QUEUE_EXTENDED_POINT'],
       position[0], position[1], position[2], position[3], position[4],
       rate
+    )
+
+    self.writer.send_action_payload(payload)
+
+  def set_position(self, position):
+    """
+    Inform the machine that it should consider this point its current point
+    @param list position: 3D position to set the machine to, in steps.
+    """
+    if len(position) != self.pointLength:
+      raise PointLengthError(len(position))
+
+    payload = struct.pack(
+      '<Biii',
+      host_action_command_dict['SET_POSITION'],
+      position[0], position[1], position[2],
     )
 
     self.writer.send_action_payload(payload)
@@ -865,16 +973,16 @@ class s3g(object):
 
     [resonse_code, bitfield] = Encoder.unpack_response('<BB', response)
 
-#    bitfield = Encoder.DecodeBitfield8(bitfield)
+    bitfield = Encoder.decode_bitfield(bitfield)
 
     returnDict = {
-      "ExtruderReady"        : 1 == ((bitfield >> 0) & 0x01),
-      "ExtruderNotPluggedIn" : 1 == ((bitfield >> 1) & 0x01),
-      "ExtruderOverMaxTemp"  : 1 == ((bitfield >> 2) & 0x01),
-      "ExtruderNotHeating"   : 1 == ((bitfield >> 3) & 0x01),
-      "ExtruderDroppingTemp" : 1 == ((bitfield >> 4) & 0x01),
-      "PlatformError"        : 1 == ((bitfield >> 6) & 0x01),
-      "ExtruderError"        : 1 == ((bitfield >> 7) & 0x01),
+      "ExtruderReady"        : bitfield[0], 
+      "ExtruderNotPluggedIn" : bitfield[1],
+      "ExtruderOverMaxTemp"  : bitfield[2],
+      "ExtruderNotHeating"   : bitfield[3],
+      "ExtruderDroppingTemp" : bitfield[4],
+      "PlatformError"        : bitfield[6],
+      "ExtruderError"        : bitfield[7],
     }
     return returnDict
   
@@ -891,6 +999,19 @@ class s3g(object):
 
     self.tool_action_command(tool_index, slave_action_command_dict['SET_SERVO_1_POSITION'], payload)
 
+  def set_servo2_position(self, tool_index, theta):
+    """
+    Sets the tool_index's servo as position 2 to a certain angle 
+    @param int tool_index: The tool that will be set
+    @param int theta: angle to set the servo to
+    """
+    payload = struct.pack(
+      '<B',
+      theta
+    )
+
+    self.tool_action_command(tool_index, slave_action_command_dict['SET_SERVO_2_POSITION'], payload)
+
   def toolhead_abort(self, tool_index):
     """
     Used to terminate a build during printing.  Disables any engaged heaters and motors
@@ -905,6 +1026,21 @@ class s3g(object):
     @param int tool_index: The tool which is to be paused
     """
     self.tool_action_command(tool_index, slave_action_command_dict['PAUSE'])
+
+  def toggle_abp(self, tool_index, state):
+    """
+    This sets the on/off state of the ABP's conveyor belt
+    @param boolean : Turns on or off the ABP's conveyor belt
+    """
+    enable = 0;
+    if state:
+      enable = 1
+    payload = struct.pack(
+      '<B',
+      enable
+    )
+
+    self.tool_action_command(tool_index, slave_action_command_dict['TOGGLE_ABP'], payload)
 
   def toggle_motor1(self, tool_index, toggle, direction):
     """
@@ -939,6 +1075,36 @@ class s3g(object):
 
     self.tool_action_command(tool_index, slave_action_command_dict['SET_MOTOR_1_SPEED_RPM'], payload)
 
+  def set_motor1_speed_PWM(self, tool_index, pwm):
+    """
+    This sets the motor speed as a PWM duty cycle
+    @param int pwm : PWM duty cycle as an integer in the range 0 - 255 where 0 = 0% and 255 = 100%
+    """
+    payload = struct.pack(
+      '<B',
+      pwm
+    )
+
+    self.tool_action_command(tool_index, slave_action_command_dict['SET_MOTOR_1_SPEED_PWM'], payload)
+
+  def set_motor1_direction(self, tool_index, direction):
+    """
+    This sets the direction of rotation for the motor
+    @param int tool_index: The tool's motor that will be set
+    @param boolean direction: If true, sets the motor to turn clockwise.  If false, sets the motor to turn counter-clockwise
+    """
+
+    clockwise = 0
+    if direction:
+      clockwise = 1
+
+    payload = struct.pack(
+      '<B',
+      clockwise
+    )
+
+    self.tool_action_command(tool_index, slave_action_command_dict['SET_MOTOR_1_DIRECTION'], payload)
+
   def get_motor1_speed(self, tool_index):
     """
     Gets the toohead's motor speed in Rotations per Minute (RPM)
@@ -948,6 +1114,16 @@ class s3g(object):
     response = self.tool_query(tool_index, slave_query_command_dict['GET_MOTOR_1_SPEED_RPM'])
     [response_code, speed] = Encoder.unpack_response('<BI', response)
     return speed
+
+  def get_motor1_speed_PWM(self, tool_index):
+    """
+    Gets the toohead's motor speed in as a 0 - 255 / 255 PWM duty cycle.
+    @param int tool_index: The tool index that will be queried for Motor speed
+    @return byte pwm : PWM duty cycle, 0% = 0, 100% = 255
+    """
+    response = self.tool_query(tool_index, slave_query_command_dict['GET_MOTOR_1_SPEED_PWM'])
+    [response_code, pwm] = Encoder.unpack_response('<BB', response)
+    return pwm
 
   def get_toolhead_temperature(self, tool_index):
     """

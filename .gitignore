@@ -5,3 +5,8 @@ dist/*
 build/*
 MANIFEST
 *.svn
+virtualenv
+htmlcov
+build
+dist
+pys3g.egg-info
