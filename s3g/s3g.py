@@ -384,6 +384,33 @@ class s3g(object):
 
     self.writer.send_action_payload(payload)
   
+  def queue_point_new_ext(self, position, dda_rate, relative_axes, distance, feedrate):
+    """
+    Queue a position with the new style!  Moves to a certain position over a given duration
+    with either relative or absolute positioning.  Relative vs. Absolute positioning
+    is done on an axis to axis basis.
+
+    @param list position: A 5 dimentional position in steps specifying where each axis should move to
+    @param int dda_rate: Steps per second along the master axis
+    @param list relative_axes: Array of axes whose coordinates should be considered relative
+    @param float distance: distance in millimeters moved in (x,y,z) space OR if distance(x,y,z) == 0, then max(distance(A),distance(B))
+    @param float feedrate: the actual feedrate in units of millimeters/second
+    """
+    if len(position) != self.extendedPointLength:
+      raise PointLengthError(len(position))
+
+    payload = struct.pack(
+      '<BiiiiiIBfh',
+      host_action_command_dict['QUEUE_POINT_NEW_EXT'],
+      position[0], position[1], position[2], position[3], position[4],
+      dda_rate,
+      Encoder.encode_axes(relative_axes),
+      float(distance),
+      int(float(feedrate)*64.0)
+    )
+
+    self.writer.send_action_payload(payload)
+  
   def store_home_positions(self, axes):
     """
     Write the current axes locations to the EEPROM as the home position

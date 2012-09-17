@@ -1296,6 +1296,24 @@ Payload (1 byte)
 
 Response (0 bytes)
 
+## 155 - Queue point, new style extended
+This command queues a point to move to while providing the distance and target feedrate in physical units of millimeters.  The DDA rate is the step rate -- steps per second -- to move along the master axis.  The master axis is the axis or axes with the most number of steps for the move.  The distance is measured in millimeters and is the Euclidean distance in (x,y,z) space for the move.  However, if that distance in (x,y,z) space is zero [i.e., an extruder-only move], then it is the largest of the per-axis distances moved along the extruder axes and measured in millimeters [e.g., max(distance(A),distance(B)].  The feedrate, measured in units of millimeters per second, is scaled by 64 to prevent loss of precision when converted to a 16 bit integer.
+
+This new queue point command is intended to shift some acceleration planning computations from the printer's microprocessor to the source of the s3g command stream.  The source of the s3g stream typically has more information than the printer as regards intentions (e.g., target feedrate) and thus is in a better position to compute the target feedrate.  Often the source also has floating point support and thus can compute the distance faster than a microprocessor.  This offloading saves processor time on the printer and typically yields a more correct feedrate.  Note that the printer is typically presented with speed and acceleration limits in physical units (millimeters per second) rather than stepper space units (e.g., steps per second).  As such, the printer may benefit from having this additional information presented in physical units.
+
+Payload
+
+    int32: X coordinate, in steps
+    int32: Y coordinate, in steps
+    int32: Z coordinate, in steps
+    int32: A coordinate, in steps
+    int32: B coordinate, in steps
+    int32: DDA rate, in steps per second
+    uint8: Axes bitfield to specify which axes are relative. Any axis with a bit set should make a relative movement
+    float32: distance moved, in millimeters
+    int16: feedrate multiplied by 64, in millimeters per second
+
+Response (0 bytes)
 
 # Tool Query Commands
 

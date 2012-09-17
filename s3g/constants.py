@@ -50,6 +50,7 @@ host_action_command_dict = {
   'RESET_TO_FACTORY'          : 152,
   'BUILD_START_NOTIFICATION'  : 153,
   'BUILD_END_NOTIFICATION'    : 154,
+  'QUEUE_POINT_NEW_EXT'       : 155,
 }
 
 # TODO: Change name to tool
@@ -102,12 +103,15 @@ response_code_dict = {
 }
 
 sd_error_dict = {
-  'SUCCESS'                    : 000,
-  'NO_CARD_PRESENT'            : 001,
-  'INITIALIZATION_FAILED'      : 002,
-  'PARTITION_TABLE_ERROR'      : 003,
-  'FILESYSTEM_ERROR'           : 004,
-  'DIRECTORY_ERROR'            : 005,
+  'SUCCESS'                    : 0,
+  'NO_CARD_PRESENT'            : 1,
+  'INITIALIZATION_FAILED'      : 2,
+  'PARTITION_TABLE_ERROR'      : 3,
+  'FILESYSTEM_ERROR'           : 4,
+  'DIRECTORY_ERROR'            : 5,
+  'CARD_LOCKED'                : 6,
+  'FILE_NOT_FOUND'             : 7,
+  'GENERIC_ERROR'              : 8
 }
 
 # TODO: convention for naming these?
